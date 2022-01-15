@@ -2,7 +2,7 @@
   <div class="sp-acc">
     <div
       v-if="wallet"
-      class="sp-nav-link selected"
+      class="sp-nav-link selected account-dropdown-button"
       style="display: flex; align-items: center"
       @click="state.accountDropdown = true"
     >
@@ -125,7 +125,14 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed, watch, ComputedRef, onBeforeMount } from 'vue'
+import {
+  defineComponent,
+  reactive,
+  computed,
+  watch,
+  ComputedRef,
+  onMounted
+} from 'vue'
 import { useStore } from 'vuex'
 
 import SpModal from '../SpModal'
@@ -145,7 +152,7 @@ export interface State {
   modalPage: string
   connectWalletModal: boolean
   accountDropdown: boolean
-  keplrParams: { name: String, bech32Address: String }
+  keplrParams: { name: String; bech32Address: String }
 }
 
 export let initialState: State = {
@@ -190,7 +197,7 @@ export default defineComponent({
     let wallet: ComputedRef<Wallet> = computed(
       () => $s.getters['common/wallet/wallet']
     )
-    let chainId: ComputedRef<String> = computed(
+    let chainId: ComputedRef<string> = computed(
       () => $s.getters['common/env/chainId']
     )
 
@@ -223,14 +230,6 @@ export default defineComponent({
 
       connectToKeplr(onKeplrConnect, onKeplrError)
     }
-    const connectAutomatically = async (chainId: string) => {
-      let { name, bech32Address } = await getKeplrAccParams(chainId.value)
-      state.keplrParams.name = name
-      state.keplrParams.bech32Address = bech32Address
-
-      let offlineSigner = getOfflineSigner(chainId.value)
-      await signInWithKeplr(offlineSigner)
-    }
     let getAccName = (): string => {
       if (wallet.value?.name === 'Keplr Integration') {
         return state.keplrParams?.name + ''
@@ -245,27 +244,15 @@ export default defineComponent({
     }
 
     // check if already connected
-    onBeforeMount(async () => {
-      if (chainId) {
+    onMounted(async () => {
+      if (chainId.value) {
         try {
-          await connectAutomatically(chainId)
+          await tryToConnectToKeplr()
         } catch (e) {
-          console.log('Keplr not connected')
+          console.warn('Keplr not connected')
         }
       }
     })
-    // watch for chain changes
-    watch(() => chainId,
-        async (newVal) => {
-          if (newVal) {
-            try {
-              await connectAutomatically(newVal)
-            } catch (e) {
-              console.log('Keplr not connected')
-            }
-          }
-        }
-    )
 
     return {
       isKeplrAvailbe,
